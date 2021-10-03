@@ -2,64 +2,50 @@
 # Copyright 2021 Adam Prycki adam.prycki@gmail.com
 # Distributed under the terms of the GNU General Public License v2
 
-name="rtorrent in tmux"
+name="sandboxed rtorrent"
 description="sandboxed rtorrent launched inside tmux"
 TMUX_NAME=${SVCNAME}
 
 user="${SVCNAME##*.}"
-progname="/usr/bin/rtorrent"
+command_user="${user}"
+command="/usr/bin/tmux"
+command_args="-L ${TMUX_NAME} new-session -d ${firejail} ${firejail_netns} ${rtorrent_binary}"
+extra_started_commands="attach"
+description_attach="attach to running tmux (requires user password)"
+
+rtorrent_binary="/usr/bin/rtorrent"
 firejail="/usr/bin/firejail --profile=/etc/firejail/rtorrent.profile ${firejail_args}"
 stop_args="send-keys C-q"
 wg_route="0.0.0.0/0 via "
-
-command_user="${user}"
-name="rtorrent"
-supervisor="start-stop-daemon"
-command="/usr/bin/tmux"
-command_args="-L ${TMUX_NAME} new-session -d ${firejail} ${firejail_netns} ${progname}"
-
-extra_started_commands="attach"
-description_attach="attach to running tmux (requires user password)"
 
 
 depend() {
         need net localmount
 }
 
-start() {
+start_pre() {
 	ebegin "Starting ${SVCNAME}"
 	if [ "${SVCNAME}" == "${SVCNAME##*.}" ] ; then
 		eerror "failed to start, you need to define user for this service"
 		exit 1
 		fi
-	if ! [ -z "$(pidof ${progname})" ] ; then
+	if ! [ -z "$(pidof rtorrent)" ] ; then
 		ebegin "rtorrent running, killall rtorrent"
-		killall ${progname}
+		killall rtorrent
 		fi
 	if [ "${TTlockfile}" != "" ] && [ -f ${TTlockfile} ] && [ "$(pgrep -u ${user} rtorrent)" == "" ] ; then
 		ebegin "lockfile exists. removing"
 		rm -f ${TTlockfile}
 		fi
 	create_ns
-	#/bin/su ${user} -c "/usr/bin/tmux -L ${TMUX_NAME} new-session -d ${firejail} ${firejail_netns} ${progname} "
-	uid="$(awk -F ':' "\$1==\"${user}\" {print \$3}" /etc/passwd)"
-	start-stop-daemon --start \
-		--name rtorrent \
-		--user ${user} \
-		/usr/bin/tmux -- -L ${TMUX_NAME} new-session -d ${firejail} ${firejail_netns} ${progname}
-	rt="$?"
-	eend $rt "rtorrent failed to start"
-	exit $rt
-
-
 }
 
 stop() {
 	uid="$(awk -F ':' "\$1==\"${user}\" {print \$3}" /etc/passwd)"
 	tmux -S /tmp/tmux-${uid}/${TMUX_NAME} ${stop_args}
-	ebegin "waiting for ${progname} to finish..."
+	ebegin "waiting for rtorrent to finish..."
 	#while [[ -n $(pidof ${cmdpidname} ) ]]; do
-	while [[ -n $(pgrep -u ${user} ${progname} ) ]]; do
+	while [[ -n $(pgrep -u ${user} rtorrent ) ]]; do
 		sleep 0.5
 		[ -S /tmp/tmux-${uid}/${TMUX_NAME} ] && tmux -S /tmp/tmux-${uid}/${TMUX_NAME} ${stop_args}
 		#einfo '.'
@@ -119,6 +105,7 @@ create_ns() {
 	echo "nameserver ${wg_dns}" > /etc/netns/${SVCNAME}/resolv.conf 
 	#enable namespace in firejail
 	firejail_netns="--netns=${SVCNAME}"
+	command_args="-L ${TMUX_NAME} new-session -d ${firejail} ${firejail_netns} ${rtorrent_binary}"
 	}
 
 remove_ns() {
@@ -133,16 +120,8 @@ remove_ns() {
 	eend $? "namespace ${SVCNAME} removed"
 }
 
-#status(){
-#	if [[ -n $(pgrep -u ${user} ${progname} ) ]] ;then
-#		einfo "rtorrent running"
-#	else
-#		ewarn "rtorrent is NOT running"
-#		# this doesn't work
-#		mark_service_stopped ${SVCNAME}
-#	fi
-#}
-
 attach(){
-	su ${command_user} -c "tmux -L ${SVCNAME} attach"
+	uid="$(awk -F ':' "\$1==\"${user}\" {print \$3}" /etc/passwd)"
+	tmux -S /tmp/tmux-${uid}/${TMUX_NAME} attach
+	#su ${command_user} -c "tmux -S ${SVCNAME} attach"
 	}

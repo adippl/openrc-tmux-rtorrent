@@ -52,3 +52,7 @@ rc-update add tmux-rtorrent.put-you-username-here
 
 if your rtorrent started correctly, you can connect to tmux with this command
 tmux -L tmux-rtorrent.put-you-username-here attach
+or arrach from initscript
+/etc/init.d/tmux-rtorrent.put-you-username-here attach
+or
+rc-service tmux-rtorrent.put-you-username-here attach

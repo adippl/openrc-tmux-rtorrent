@@ -1,5 +1,6 @@
 # Copyright 2021 Adam Prycki adam.prycki@gmail.com
 # Distributed under the terms of the GNU General Public License v2
+#
 
 # use VPN and network namespace
 use_ns="true"
@@ -9,10 +10,18 @@ wg_testIP="true"
 wg_dev="wg42"
 # path to config file
 wg_conf="/etc/wireguard/wg42.conf"
-wg_ipv4="IPv4 of you network wireguard network interface"
-wg_ipv6="IPv6 of you network wireguard network interface"
+wg_ipv4="IPv4 of you wireguard network interface"
+wg_ipv6="IPv6 of you wireguard network interface"
 wg_dns="IP of DNS server probvided by VPN provider"
 
+# get user from service name (part of the name after .)
+user="${SVCNAME##*.}"
+
+# extra arguments for firejail
+# you can set it in /etc/firejail/rtorrent.local or directly here
+firejail_args="--whitelist=/home/${user}/.rtorrent.rc --whitelist=/home/${user}/dwn/rt/ --private-bin=rtorrent,mkdir,mv,btrfs"
 
 #path to your rtorrent lockfile
-TTlockfile="/home/${SVCNAME##*.}/dwn/rt/.ssn/rtorrent.lock"
+TTlockfile="/home/${user}/dwn/rt/.ssn/rtorrent.lock"
+
+# vim: set ft=gentoo-conf-d:

@@ -1,0 +1,54 @@
+	this repo contains initscript launching rtorrent in tmux and firejail
+it also has option to launch it in network namespace with VPN.
+Network namespace restrict it's internet access to VPN tunnel. 
+
+This repo also has ebuild which allows easy installation on gentoo.
+ebuild forces "adns" flag on curl. It enables asynchronous dns resolver 
+which stops rtorrent freezes cause by unrachable trackers. 
+useflag wg just enables net-vpn/wireguard-tools and sys-apps/iproute2
+as dependencies
+
+
+
+	HOW TO:
+I assume that you know how to use wireguard
+You need:
+	- user
+	- user's homedir
+	- dir ${home}/dwn/rt (you can change this later)
+	- rtorrent config in ${home}/.rtorrent.rc
+	- wireguard config 
+
+create symlink to initscript
+ln -s tmux-rtorrent /etc/init.d/tmux-rtorrent.put-you-username-here
+create copy of example config for your user
+cp /etc/conf.d/tmux-rtorrent.example /etc/conf.d/tmux-rtorrent.put-you-username-here
+
+configure vpn
+	you can disable network namespace and VPN ia use_ns command
+	you can disable IP check via wg_testIP, 
+		Ip check checks your public IP and VPN public IP, it refuses to stop if these values match.
+
+
+use_ns="true"
+wg_testIP="true"
+wg_dev="wg42"
+wg_conf="/etc/wireguard/wg42.conf"
+wg_ipv4="IPv4 of you wireguard network interface"
+wg_ipv6="IPv6 of you wireguard network interface"
+wg_dns="IP of DNS server probvided by VPN provider"
+
+
+you can configure firejail filesystem sandbox in .local profile or in configfile
+this line allws rtorrent to access only it's .rtorrent.rc file and firectories under ~/dwn/rt/
+firejail_args="--whitelist=/home/${user}/.rtorrent.rc --whitelist=/home/${user}/dwn/rt/ --private-bin=rtorrent,mkdir,mv,btrfs"
+
+
+once you're done you can try to start service
+rc-service tmux-rtorrent.put-you-username-here start
+
+once if everything is ok you can add it to your runlevel 
+rc-update add tmux-rtorrent.put-you-username-here
+
+if your rtorrent started correctly, you can connect to tmux with this command
+tmux -L tmux-rtorrent.put-you-username-here attach

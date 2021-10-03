@@ -1,9 +1,9 @@
 ifeq ($(DESTDIR),)
-    DESTDIR := /
+    DESTDIR := 
 endif
 
 dunmy_compile:
-	echo "nothing to compile"
+	echo "use make install to install scripts"
 
 install:
 	mkdir -p ${DESTDIR}/etc/init.d/

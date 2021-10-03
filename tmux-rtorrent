@@ -7,10 +7,8 @@ description="sandboxed rtorrent launched inside tmux"
 TMUX_NAME=${SVCNAME}
 
 user="${SVCNAME##*.}"
-uid="$(awk -F ':' "\$1==\"${user}\" {print \$3}" /etc/passwd)"
 progname="/usr/bin/rtorrent"
-firejail="/usr/bin/firejail --netns=${SVCNAME} --profile=/etc/firejail/rtorrent.profile"
-tmux_args="-L ${TMUX_NAME} new-session -d ${firejail} ${progname}"
+firejail="/usr/bin/firejail --profile=/etc/firejail/rtorrent.profile ${firejail_args}"
 stop_args="send-keys C-q"
 wg_route="0.0.0.0/0 via "
 
@@ -22,6 +20,10 @@ depend() {
 
 start() {
 	ebegin "Starting ${SVCNAME}"
+	if [ "${SVCNAME}" == "${SVCNAME##*.}" ] ; then
+		eerror "failed to start, you need to define user for this service"
+		exit 1
+		fi
 	if ! [ -z "$(pidof ${progname})" ] ; then
 		ebegin "rtorrent running, killall rtorrent"
 		killall ${progname}
@@ -31,14 +33,16 @@ start() {
 		rm -f ${TTlockfile}
 		fi
 	create_ns
-	/bin/su ${user} -c "/usr/bin/tmux ${tmux_args} " || fail
-	#rt="$?"
-	eend $? "rtorrent failed to start"
+	/bin/su ${user} -c "/usr/bin/tmux -L ${TMUX_NAME} new-session -d ${firejail} ${firejail_netns} ${progname} "
+	rt="$?"
+	eend $rt "rtorrent failed to start"
+	exit $rt
 
 
 }
 
 stop() {
+	uid="$(awk -F ':' "\$1==\"${user}\" {print \$3}" /etc/passwd)"
 	tmux -S /tmp/tmux-${uid}/${TMUX_NAME} ${stop_args}
 	ebegin "waiting for ${progname} to finish..."
 	#while [[ -n $(pidof ${cmdpidname} ) ]]; do
@@ -51,6 +55,7 @@ stop() {
 	
 	[ "${use_ns}" == "true" ] && remove_ns
 	rm /tmp/tmux-${uid}/${TMUX_NAME}
+	rm -rf /etc/netns/${SVCNAME}
 	
 	einfo "rtorrent stopped"
 }
@@ -99,6 +104,8 @@ create_ns() {
 	einfo "setting netns dns to ${wg_dns}"
 	mkdir -p /etc/netns/${SVCNAME}
 	echo "nameserver ${wg_dns}" > /etc/netns/${SVCNAME}/resolv.conf 
+	#enable namespace in firejail
+	firejail_netns="--netns=${SVCNAME}"
 	}
 
 remove_ns() {

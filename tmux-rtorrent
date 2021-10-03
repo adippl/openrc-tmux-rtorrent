@@ -12,6 +12,14 @@ firejail="/usr/bin/firejail --profile=/etc/firejail/rtorrent.profile ${firejail_
 stop_args="send-keys C-q"
 wg_route="0.0.0.0/0 via "
 
+command_user="${user}"
+name="rtorrent"
+supervisor="start-stop-daemon"
+command="/usr/bin/tmux"
+command_args="-L ${TMUX_NAME} new-session -d ${firejail} ${firejail_netns} ${progname}"
+
+extra_started_commands="attach"
+description_attach="attach to running tmux (requires user password)"
 
 
 depend() {
@@ -33,7 +41,12 @@ start() {
 		rm -f ${TTlockfile}
 		fi
 	create_ns
-	/bin/su ${user} -c "/usr/bin/tmux -L ${TMUX_NAME} new-session -d ${firejail} ${firejail_netns} ${progname} "
+	#/bin/su ${user} -c "/usr/bin/tmux -L ${TMUX_NAME} new-session -d ${firejail} ${firejail_netns} ${progname} "
+	uid="$(awk -F ':' "\$1==\"${user}\" {print \$3}" /etc/passwd)"
+	start-stop-daemon --start \
+		--name rtorrent \
+		--user ${user} \
+		/usr/bin/tmux -- -L ${TMUX_NAME} new-session -d ${firejail} ${firejail_netns} ${progname}
 	rt="$?"
 	eend $rt "rtorrent failed to start"
 	exit $rt
@@ -120,3 +133,16 @@ remove_ns() {
 	eend $? "namespace ${SVCNAME} removed"
 }
 
+#status(){
+#	if [[ -n $(pgrep -u ${user} ${progname} ) ]] ;then
+#		einfo "rtorrent running"
+#	else
+#		ewarn "rtorrent is NOT running"
+#		# this doesn't work
+#		mark_service_stopped ${SVCNAME}
+#	fi
+#}
+
+attach(){
+	su ${command_user} -c "tmux -L ${SVCNAME} attach"
+	}

@@ -1,0 +1,115 @@
+#!/sbin/openrc-run
+# Copyright 2021 Adam Prycki adam.prycki@gmail.com
+# Distributed under the terms of the GNU General Public License v2
+
+name="rtorrent in tmux"
+description="sandboxed rtorrent launched inside tmux"
+TMUX_NAME=${SVCNAME}
+
+user="${SVCNAME##*.}"
+uid="$(awk -F ':' "\$1==\"${user}\" {print \$3}" /etc/passwd)"
+progname="/usr/bin/rtorrent"
+firejail="/usr/bin/firejail --netns=${SVCNAME} --profile=/etc/firejail/rtorrent.profile"
+tmux_args="-L ${TMUX_NAME} new-session -d ${firejail} ${progname}"
+stop_args="send-keys C-q"
+wg_route="0.0.0.0/0 via "
+
+
+
+depend() {
+        need net localmount
+}
+
+start() {
+	ebegin "Starting ${SVCNAME}"
+	if ! [ -z "$(pidof ${progname})" ] ; then
+		ebegin "rtorrent running, killall rtorrent"
+		killall ${progname}
+		fi
+	if [ "${TTlockfile}" != "" ] && [ -f ${TTlockfile} ] && [ "$(pgrep -u ${user} rtorrent)" == "" ] ; then
+		ebegin "lockfile exists. removing"
+		rm -f ${TTlockfile}
+		fi
+	create_ns
+	/bin/su ${user} -c "/usr/bin/tmux ${tmux_args} " || fail
+	#rt="$?"
+	eend $? "rtorrent failed to start"
+
+
+}
+
+stop() {
+	tmux -S /tmp/tmux-${uid}/${TMUX_NAME} ${stop_args}
+	ebegin "waiting for ${progname} to finish..."
+	#while [[ -n $(pidof ${cmdpidname} ) ]]; do
+	while [[ -n $(pgrep -u ${user} ${progname} ) ]]; do
+		sleep 0.5
+		[ -S /tmp/tmux-${uid}/${TMUX_NAME} ] && tmux -S /tmp/tmux-${uid}/${TMUX_NAME} ${stop_args}
+		#einfo '.'
+		done
+	[ -S /tmp/tmux-${uid}/${TMUX_NAME} ] && tmux -S /tmp/tmux-${uid}/${TMUX_NAME} kill-session 2>/dev/null
+	
+	[ "${use_ns}" == "true" ] && remove_ns
+	rm /tmp/tmux-${uid}/${TMUX_NAME}
+	
+	einfo "rtorrent stopped"
+}
+
+create_ns() {
+	[ "${use_ns}" != "true" ] && return 1
+	# delete if exists
+	[ "$(ip netns list|grep ${SVCNAME})" != "" ] &&\
+		ip netns del ${SVCNAME}
+	# create namespace
+	ip netns add ${SVCNAME}
+	# create wg interface in namespace
+	ip link add ${wg_dev} type wireguard
+	# move wg interface to namespace
+	ip link set ${wg_dev} netns ${SVCNAME} 
+	# set wireguard configuration
+	ip netns exec ${SVCNAME} wg setconf ${wg_dev} ${wg_conf} 
+	# set interface IPs
+	ip -n ${SVCNAME} address add ${wg_ipv4} dev ${wg_dev}
+	ip -n ${SVCNAME} address add ${wg_ipv6} dev ${wg_dev}
+	# raise interface
+	ip -n ${SVCNAME} link set ${wg_dev} up
+	# add ipv4 route
+	ip -n ${SVCNAME} route add default dev ${wg_dev}
+	# add ipv6 route
+	ip -6 -n ${SVCNAME} route add default dev ${wg_dev}
+	if [ "${wg_testIP}" == "true" ] ;then
+		hostIP4="$(curl -s -4 icanhazip.com)"
+		hostIP6="$(curl -s -6 icanhazip.com)"
+		wgIP4="$(ip netns exec ${SVCNAME} curl -s -4 icanhazip.com)"
+		wgIP6="$(ip netns exec ${SVCNAME} curl -s -6 icanhazip.com)"
+		einfo "checking public IPs"
+		einfo "hostIP4	${hostIP4}" 
+		einfo "hostIP6	${hostIP6}" 
+		einfo "wgIP4		${wgIP4}" 
+		einfo "wgIP6		${wgIP6}" 
+		if [ "$hostIP4" == "$wgIP4" ]||[ "$hostIP6" == "$wgIP6" ] ;then
+			eerror 1 "your VPN doesn't work!"
+			ewarn "check your config"
+			ewarn "shutting down rtorrent"
+			remove_ns
+			exit 1
+		fi
+			
+	fi
+	einfo "setting netns dns to ${wg_dns}"
+	mkdir -p /etc/netns/${SVCNAME}
+	echo "nameserver ${wg_dns}" > /etc/netns/${SVCNAME}/resolv.conf 
+	}
+
+remove_ns() {
+	# exit if namespace doesn't exist
+	[ "$(ip netns list|grep ${SVCNAME})" == "" ] && return 0
+	# down interface
+	ip -n ${SVCNAME} link set ${wg_dev} down
+	# remove interface
+	ip -n ${SVCNAME} link delete ${wg_dev} type wireguard
+	# remove namespace
+	ip netns del ${SVCNAME}
+	eend $? "namespace ${SVCNAME} removed"
+}
+

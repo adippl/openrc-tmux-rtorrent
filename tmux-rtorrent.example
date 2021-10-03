@@ -1,0 +1,18 @@
+# Copyright 2021 Adam Prycki adam.prycki@gmail.com
+# Distributed under the terms of the GNU General Public License v2
+
+# use VPN and network namespace
+use_ns="true"
+# compare public and VPN ip before launching torrent client
+wg_testIP="true"
+# name of interface
+wg_dev="wg42"
+# path to config file
+wg_conf="/etc/wireguard/wg42.conf"
+wg_ipv4="IPv4 of you network wireguard network interface"
+wg_ipv6="IPv6 of you network wireguard network interface"
+wg_dns="IP of DNS server probvided by VPN provider"
+
+
+#path to your rtorrent lockfile
+TTlockfile="/home/${SVCNAME##*.}/dwn/rt/.ssn/rtorrent.lock"

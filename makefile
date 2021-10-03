@@ -2,6 +2,9 @@ ifeq ($(DESTDIR),)
     DESTDIR := /
 endif
 
+dunmy_compile:
+	echo "nothing to compile"
+
 install:
 	mkdir -p ${DESTDIR}/etc/init.d/
 	mkdir -p ${DESTDIR}/etc/conf.d/

@@ -1,4 +1,4 @@
-# Copyright 2011-2020 Gentoo Authors
+# Copyright 2021 Adam Prycki adam.prycki@gmail.com
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7

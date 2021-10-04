@@ -6,13 +6,10 @@ dunmy_compile:
 	echo "use make install to install scripts"
 
 install:
-	mkdir -p ${DESTDIR}/etc/init.d/
-	mkdir -p ${DESTDIR}/etc/conf.d/
-	cp tmux-rtorrent ${DESTDIR}/etc/init.d/tmux-rtorrent
-	cp tmux-rtorrent.example ${DESTDIR}/etc/conf.d/tmux-rtorrent.example
-	chmod +x ${DESTDIR}/etc/init.d/tmux-rtorrent
+	install -d ${DESTDIR}/etc/init.d/
+	install -m 755 tmux-rtorrent ${DESTDIR}/etc/init.d/
 uninstall:
-	rm -f $(DESTDIR)/etc/init.d/tmux-rtorrent /etc/init.d/tmux-rtorrent
+	rm -f $(DESTDIR)/etc/init.d/tmux-rtorrent $(DESTDIR)/etc/init.d/tmux-rtorrent
 
 su-install:
 	su root -c 'make install'

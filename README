@@ -20,9 +20,9 @@ You need:
 	- wireguard config 
 
 create symlink to initscript
-ln -s tmux-rtorrent /etc/init.d/tmux-rtorrent.put-you-username-here
+ln -s /etc/init.d/tmux-rtorrent /etc/init.d/tmux-rtorrent.put-you-username-here
 create copy of example config for your user
-cp /etc/conf.d/tmux-rtorrent.example /etc/conf.d/tmux-rtorrent.put-you-username-here
+bzip2 -d -c /usr/share/doc/openrc-tmux-rtorrent-9999/README.bz2 > /etc/conf.d/tmux-rtorrent.put-you-username-here
 
 configure vpn
 	you can disable network namespace and VPN ia use_ns command

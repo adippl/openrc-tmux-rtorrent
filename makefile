@@ -11,9 +11,9 @@ dunmy_compile:
 	echo "use make install to install scripts"
 
 install:
-	install -D -m 755 tmux-rtorrent ${DESTDIR}${PREFIX}/libexec/tmux-rtorrent
+	install -D -m 755 tmux-rtorrent ${DESTDIR}/etc/init.d/
 uninstall:
-	rm -f ${DESTDIR}${PREFIX}/libexec/tmux-rtorrent
+	rm -f $(DESTDIR)/etc/init.d/tmux-rtorrent
 
 su-install:
 	su root -c 'make install'

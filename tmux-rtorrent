@@ -10,8 +10,15 @@ user="${SVCNAME##*.}"
 command_user="${user}"
 command="/usr/bin/tmux"
 command_args="-L ${TMUX_NAME} new-session -d ${firejail} ${firejail_netns} ${rtorrent_binary}"
-extra_started_commands="attach"
+#command_args="-L ${TMUX_NAME} new-session ${firejail} ${firejail_netns} ${rtorrent_binary}"
+#command_background="yes"
+#pidfile="/var/run/${SVCNAME}.pid"
+
+extra_started_commands="attach wg nethogs shell"
 description_attach="attach to running tmux (requires user password)"
+description_wg="show info about wireguard connection (wg show)"
+description_nethogs="launch nethogs network monitor in network namespace"
+description_shell="spawns shell running in network namespace"
 
 rtorrent_binary="/usr/bin/rtorrent"
 firejail="/usr/bin/firejail --profile=/etc/firejail/rtorrent.profile ${firejail_args}"
@@ -44,7 +51,6 @@ stop() {
 	uid="$(awk -F ':' "\$1==\"${user}\" {print \$3}" /etc/passwd)"
 	tmux -S /tmp/tmux-${uid}/${TMUX_NAME} ${stop_args}
 	ebegin "waiting for rtorrent to finish..."
-	#while [[ -n $(pidof ${cmdpidname} ) ]]; do
 	while [[ -n $(pgrep -u ${user} rtorrent ) ]]; do
 		sleep 0.5
 		[ -S /tmp/tmux-${uid}/${TMUX_NAME} ] && tmux -S /tmp/tmux-${uid}/${TMUX_NAME} ${stop_args}
@@ -124,4 +130,16 @@ attach(){
 	uid="$(awk -F ':' "\$1==\"${user}\" {print \$3}" /etc/passwd)"
 	tmux -S /tmp/tmux-${uid}/${TMUX_NAME} attach
 	#su ${command_user} -c "tmux -S ${SVCNAME} attach"
+	}
+wg(){
+	ip netns exec ${SVCNAME} wg show
+	}
+
+nethogs(){
+	ip netns exec ${SVCNAME} nethogs
+	}
+
+shell(){
+	echo "this command opens shell in wireguard namespace"
+	echo "ip netns exec ${SVCNAME} su -l $user"
 	}

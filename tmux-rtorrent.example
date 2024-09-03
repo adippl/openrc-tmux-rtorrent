@@ -13,6 +13,7 @@ wg_conf="/etc/wireguard/wg42.conf"
 wg_ipv4="IPv4 of you wireguard network interface"
 wg_ipv6="IPv6 of you wireguard network interface"
 wg_dns="IP of DNS server probvided by VPN provider"
+wg_mtu="1320"
 
 # get user from service name (part of the name after .)
 user="${SVCNAME##*.}"

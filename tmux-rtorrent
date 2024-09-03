@@ -26,6 +26,7 @@ stop_args="send-keys C-q"
 wg_route="0.0.0.0/0 via "
 
 
+
 depend() {
         need net localmount
 }
@@ -78,6 +79,7 @@ create_ns() {
 	ip link set ${wg_dev} netns ${SVCNAME} 
 	# set wireguard configuration
 	ip netns exec ${SVCNAME} wg setconf ${wg_dev} ${wg_conf} 
+	! [ -z "$wg_mtu" ] && ip -n ${SVCNAME} link set dev ${wg_dev} mtu $wg_mtu
 	# set interface IPs
 	ip -n ${SVCNAME} address add ${wg_ipv4} dev ${wg_dev}
 	ip -n ${SVCNAME} address add ${wg_ipv6} dev ${wg_dev}
@@ -88,6 +90,7 @@ create_ns() {
 	# add ipv6 route
 	ip -6 -n ${SVCNAME} route add default dev ${wg_dev}
 	if [ "${wg_testIP}" == "true" ] ;then
+		sleep 5
 		hostIP4="$(curl -s -4 icanhazip.com)"
 		hostIP6="$(curl -s -6 icanhazip.com)"
 		wgIP4="$(ip netns exec ${SVCNAME} curl -s -4 icanhazip.com)"
@@ -99,6 +102,8 @@ create_ns() {
 		einfo "wgIP6		${wgIP6}" 
 		if [ "$hostIP4" == "$wgIP4" ]||[ "$hostIP6" == "$wgIP6" ] ;then
 			eerror 1 "your VPN doesn't work!"
+			eerror "$(ip netns exec ${SVCNAME} wg show)"
+			eerror "$(ip netns exec ${SVCNAME} ip a s ${wg_dev})"
 			ewarn "check your config"
 			ewarn "shutting down rtorrent"
 			remove_ns
@@ -108,7 +113,10 @@ create_ns() {
 	fi
 	einfo "setting netns dns to ${wg_dns}"
 	mkdir -p /etc/netns/${SVCNAME}
-	echo "nameserver ${wg_dns}" > /etc/netns/${SVCNAME}/resolv.conf 
+	for address in ${wg_dns}
+	do
+		echo "nameserver ${address}" >> /etc/netns/${SVCNAME}/resolv.conf
+	done
 	#enable namespace in firejail
 	firejail_netns="--netns=${SVCNAME}"
 	command_args="-L ${TMUX_NAME} new-session -d ${firejail} ${firejail_netns} ${rtorrent_binary}"
